@@ -5,6 +5,34 @@ import time
 from selenium import webdriver
 from ttkbootstrap import Style
 
+class GradientFrame(tk.Canvas):
+    '''A gradient frame which uses a canvas to draw the background'''
+    def __init__(self, parent, color1="red", color2="black", **kwargs):
+        tk.Canvas.__init__(self, parent, **kwargs)
+        self._color1 = color1
+        self._color2 = color2
+        self.bind("<Configure>", self._draw_gradient)
+
+    def _draw_gradient(self, event=None):
+        '''Draw the gradient'''
+        self.delete("gradient")
+        width = self.winfo_width()
+        height = self.winfo_height()
+        limit = width
+        (r1,g1,b1) = self.winfo_rgb(self._color1)
+        (r2,g2,b2) = self.winfo_rgb(self._color2)
+        r_ratio = float(r2-r1) / limit
+        g_ratio = float(g2-g1) / limit
+        b_ratio = float(b2-b1) / limit
+
+        for i in range(limit):
+            nr = int(r1 + (r_ratio * i))
+            ng = int(g1 + (g_ratio * i))
+            nb = int(b1 + (b_ratio * i))
+            color = "#%4.4x%4.4x%4.4x" % (nr,ng,nb)
+            self.create_line(i,0,i,height, tags=("gradient",), fill=color)
+        self.lower("gradient")
+
 # Define the related answers for each question
 related_answers = {
     "What is the capital of France?": ["Paris", "Marseille", "Lyon", "Nice", "Toulouse", "Bordeaux", "Lille", "Strasbourg"],
@@ -39,7 +67,6 @@ report = ""
 incorrect_questions = []
 start_time = 0
 
-
 def start_quiz_with_difficulty(difficulty):
     # Initialize variables
     global correct_answers, report, start_time, incorrect_questions, selected_questions, quiz_ended
@@ -65,24 +92,31 @@ def ask_question(questions_list):
     if questions_list and not quiz_ended:
         question, (answer, explanation) = questions_list.pop(0)
         choices = [(answer, explanation)]  # Choices should be a list of tuples
-        create_question_window(question, choices, questions_list)
+        question_number = total_questions - len(questions_list) + 1
+        create_question_window(question, choices, questions_list, question_number)
     else:
         # No more questions, show quiz report
         show_quiz_report()
 
-def create_question_window(question, choices, questions_list):
+def create_question_window(question, choices, questions_list, question_number):
     root = tk.Toplevel()
     root.title("Quiz")
     root.geometry("600x400")
-    style = Style(theme="flatly")
 
-    label = ttk.Label(root, text=question, font=("Helvetica", 16))
+    # Choose your desired color scheme here
+    background_color = "#000000"  # Dark black
+    accent_color1 = "#301934"     # Dark Purple
+    accent_color2 = "RED"     # White ~change~
+
+    gradient_frame = GradientFrame(root, color1=background_color, color2=accent_color1)
+    gradient_frame.pack(fill="both", expand=True)
+
+    label = ttk.Label(gradient_frame, text=question, font=("Helvetica", 16), foreground=accent_color2, background=background_color)
     label.pack(pady=20)
 
     # Display the number of questions answered and left
-    question_number = total_questions - len(questions_list) + 1
     question_info = f"Question {question_number}/{total_questions}"
-    question_label = ttk.Label(root, text=question_info)
+    question_label = ttk.Label(gradient_frame, text=question_info, foreground=accent_color2)
     question_label.pack()
 
     # Shuffle the related answers for the current question
@@ -100,12 +134,14 @@ def create_question_window(question, choices, questions_list):
     # Create buttons for choices
     for choice in other_choices:
         # Create a button for each choice
-        choice_button = ttk.Button(root, text=choice, command=lambda btn_text=choice: check_answer(btn_text, choices, questions_list, root))
-        choice_button.pack(fill="x", padx=20, pady=5)  # Reduced pady for better spacing
-
-
-
-
+        button = tk.Button(
+            gradient_frame,
+            text=choice,
+            command=lambda btn_text=choice: check_answer(btn_text, choices, questions_list, root),
+            background=accent_color1,
+            foreground=background_color,
+        )
+        button.pack(fill="x", padx=20, pady=5)  # Reduced pady for better spacing
 def check_answer(choice, choices, questions_list, root):
     user_answer = choice
     correct_choice, explanation = choices[0]  # Get the correct answer from the first item in the choices list
@@ -118,7 +154,6 @@ def check_answer(choice, choices, questions_list, root):
 
     root.destroy()  # Close the question window
     ask_question(questions_list[1:])  # Ask the next question, excluding the current one
-
 
 def show_quiz_report():
     global correct_answers, incorrect_questions, quiz_ended
@@ -142,7 +177,6 @@ def show_quiz_report():
 
     open_youtube_video(incorrect_questions)
     quiz_ended = True
-
 
 def open_youtube_video(incorrect_questions):
     urls = {
@@ -174,13 +208,12 @@ def open_youtube_video(incorrect_questions):
         # Close the WebDriver instance
         driver.quit()
 
-
 # Create main window
 window = tk.Tk()
 window.title("Quiz Application")
 
 # Set up style for the GUI
-style = Style(theme='flatly')
+
 
 # Flag to track if the quiz has ended
 quiz_ended = False
